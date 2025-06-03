@@ -171,17 +171,15 @@ def preprocess_command(args: argparse.Namespace):
     # 准备预处理参数
     preprocess_args = [
         "--config", args.config,
-        "--input", args.input,
-        "--output", args.output,
+        "--data_dir", args.data_dir,
+        "--output_dir", args.output_dir,
         "--mode", args.mode,
+        "--negative_ratio", str(args.negative_ratio),
     ]
     
     # 添加可选参数
     if args.split:
         preprocess_args.append("--split")
-        preprocess_args.extend(["--train_ratio", str(args.train_ratio)])
-        preprocess_args.extend(["--val_ratio", str(args.val_ratio)])
-        preprocess_args.extend(["--test_ratio", str(args.test_ratio)])
     
     if args.clustering:
         preprocess_args.append("--clustering")
@@ -253,25 +251,18 @@ def main():
                                help="是否生成交互式可视化")
     
     # 预处理命令
-    preprocess_parser = subparsers.add_parser("preprocess", help="预处理数据")
+    preprocess_parser = subparsers.add_parser("preprocess", help="数据预处理")
     setup_common_args(preprocess_parser)
-    preprocess_parser.add_argument("--input", type=str, required=True, 
-                                  help="输入数据路径")
-    preprocess_parser.add_argument("--output", type=str, required=True, 
-                                  help="输出数据路径")
-    preprocess_parser.add_argument("--mode", type=str, required=True, 
-                                  choices=['tcr_pep', 'hla_pep', 'trimer'],
-                                  help="预处理模式: tcr_pep, hla_pep, trimer")
+    preprocess_parser.add_argument("--data_dir", type=str, required=True, 
+                                 help="数据目录")
+    preprocess_parser.add_argument("--mode", type=str, required=True, choices=['tcr_pep', 'hla_pep', 'trimer'],
+                                 help="预处理模式: tcr_pep, hla_pep, trimer")
+    preprocess_parser.add_argument("--negative_ratio", type=float, default=1.0, 
+                                 help="阴性样本相对于阳性样本的比例（仅用于二元模型）")
     preprocess_parser.add_argument("--split", action="store_true", 
-                                  help="是否拆分数据集")
-    preprocess_parser.add_argument("--train_ratio", type=float, default=0.7, 
-                                  help="训练集比例")
-    preprocess_parser.add_argument("--val_ratio", type=float, default=0.15, 
-                                  help="验证集比例")
-    preprocess_parser.add_argument("--test_ratio", type=float, default=0.15, 
-                                  help="测试集比例")
+                                 help="是否拆分数据集")
     preprocess_parser.add_argument("--clustering", action="store_true", 
-                                  help="是否使用聚类进行数据拆分")
+                                 help="是否使用聚类进行数据拆分")
     
     # 解析命令行参数
     args = parser.parse_args()

@@ -10,6 +10,8 @@ TCR-HLA-Pep预测器是一个基于深度学习的计算工具，用于预测T�
 - **联合优化策略**：通过三元组数据反向优化二元组模型，实现整体性能提升
 - **残基互作可视化**：提供直观的热力图和交互式可视化，展示关键残基互作位点
 - **易用命令行工具**：简洁的命令行接口，支持训练、评估、预测和可视化功能
+- **灵活数据输入**：支持多种数据输入模式，包括二元模型和三元模型数据
+- **数据格式验证**：自动检测数据格式错误，确保模型输入的准确性
 
 ## 安装
 
@@ -46,11 +48,31 @@ TCR-HLA-Pep预测器提供了统一的命令行接口，支持数据预处理、
 
 ### 数据预处理
 
-将原始数据转换为模型可用的格式，并可选择拆分为训练、验证和测试集。
+支持多种数据输入模式，可自动验证数据格式并处理为模型可用的格式。
+
+#### 数据输入模式
+
+1. **二元模型数据**：输入包含阳性和阴性集合的文件夹，支持调整阴性集合倍数
 
 ```bash
-python cli.py preprocess --input data/raw_data.csv --output data/processed --mode trimer --split
+python cli.py preprocess --data_dir data/tcr_pep --output_dir data/processed --mode tcr_pep --negative_ratio 2.0 --split
 ```
+
+2. **三元模型数据**：输入包含3对阳性阴性集合的文件夹，分别用于训练不同类型的模型
+
+```bash
+python cli.py preprocess --data_dir data/trimer_data --output_dir data/processed --mode trimer --split
+```
+
+#### 数据格式验证
+
+系统会自动检测并验证以下数据格式：
+
+- **肽段序列**：长度9-12的氨基酸序列
+- **TCR序列**：30氨基酸以内的CDR3区序列
+- **HLA格式**：形如HLA-A01:02的标准HLA格式
+
+如果检测到格式错误，系统会记录错误行并在日志中输出错误信息。
 
 ### 模型训练
 
@@ -106,20 +128,47 @@ python cli.py predict --model models/trimer/best_model.pt \
 
 ### 输入数据格式
 
+#### 单文件输入格式
+
 TCR-HLA-Pep预测器接受CSV格式的输入文件，包含以下列：
 
-- `tcr_seq`: TCR CDR3β序列
-- `hla_seq`: HLA序列
-- `pep_seq`: 抗原肽段序列
-- `label`: 标签（1表示结合，0表示不结合，仅训练和评估需要）
+- `tcr_seq`/`CDR3`: TCR CDR3β序列
+- `hla_seq`/`HLA`: HLA序列或标识符
+- `pep_seq`/`MT_pep`: 抗原肽段序列
+- `label`/`Label`: 标签（1表示结合，0表示不结合，仅训练和评估需要）
 
 示例：
 
 ```
-tcr_seq,hla_seq,pep_seq,label
-CASSQDLNRGYTF,YYAMYQENVAQTDVDTLYIIYRDYTG,NLVPMVATV,1
-CASSLGQAYEQYF,YYAMYQENVAQTDVDTLYIIYRDYTG,GILGFVFTL,0
+CDR3,MT_pep,Label
+CASSQDLNRGYTF,NLVPMVATV,1
+CASSLGQAYEQYF,GILGFVFTL,0
 ...
+```
+
+#### 文件夹结构输入格式
+
+二元模型文件夹结构：
+```
+data/tcr_pep/
+├── pos/                   # 阳性样本文件夹
+│   └── positive_samples.csv
+└── neg/                   # 阴性样本文件夹
+    └── negative_samples.csv
+```
+
+三元模型文件夹结构：
+```
+data/trimer_data/
+├── tcr_pep/               # TCR-Pep数据文件夹
+│   ├── pos/
+│   └── neg/
+├── hla_pep/               # HLA-Pep数据文件夹
+│   ├── pos/
+│   └── neg/
+└── trimer/                # TCR-HLA-Pep数据文件夹
+    ├── pos/
+    └── neg/
 ```
 
 ### 可视化输出
