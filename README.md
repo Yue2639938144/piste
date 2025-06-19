@@ -208,5 +208,5 @@ TCR-HLA-Pep预测器的核心是一个基于注意力机制的深度学习模型
 
 如有问题或建议，请通过以下方式联系我们：
 
-- 电子邮件：your.email@example.com
+- 电子邮件：2639938144@qq.com
 - GitHub Issues：https://github.com/Yue2639938144
