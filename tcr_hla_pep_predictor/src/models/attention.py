@@ -159,14 +159,14 @@ class PhysicalSlidingAttention(nn.Module):
                                     q_pos: torch.Tensor, 
                                     k_pos: torch.Tensor) -> torch.Tensor:
         """
-        计算基于空间距离的注意力权重
+        计算基于距离的注意力权重
         
         Args:
             q_pos: 查询位置，形状为(batch_size, query_len)
             k_pos: 键位置，形状为(batch_size, key_len)
             
         Returns:
-            距离注意力权重，形状为(batch_size, query_len, key_len)
+            基于距离的注意力权重，形状为(batch_size, query_len, key_len)
         """
         batch_size = q_pos.size(0)
         query_len = q_pos.size(1)
@@ -182,7 +182,7 @@ class PhysicalSlidingAttention(nn.Module):
         
         # 将无效位置（填充位置）的注意力权重设为0
         mask = (q_pos_expanded >= 1e3) | (k_pos_expanded >= 1e3)
-        attention.masked_fill_(mask, 0.0)
+        attention = attention.masked_fill(mask, 0.0)
         
         return attention
     
@@ -223,8 +223,8 @@ class PhysicalSlidingAttention(nn.Module):
         # 保持原始的无效位置标记
         q_mask = q_pos >= 1e3
         k_mask = k_pos >= 1e3
-        q_pos_new.masked_fill_(q_mask, 1e4)
-        k_pos_new.masked_fill_(k_mask, 1e4)
+        q_pos_new = q_pos_new.masked_fill(q_mask, 1e4)
+        k_pos_new = k_pos_new.masked_fill(k_mask, 1e4)
         
         return q_pos_new, k_pos_new
     

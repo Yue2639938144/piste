@@ -188,8 +188,8 @@ class HLAPepModel(nn.Module):
             )
         
         # 全局表示
-        hla_global = hla_embed.sum(dim=1) / hla_lengths.unsqueeze(1).float()
-        cross_global = cross_output.sum(dim=1) / hla_lengths.unsqueeze(1).float()
+        hla_global = hla_embed.sum(dim=1) / (hla_lengths.unsqueeze(1).float() + 1e-8)
+        cross_global = cross_output.sum(dim=1) / (hla_lengths.unsqueeze(1).float() + 1e-8)
         
         # 连接全局表示
         combined = torch.cat([hla_global, cross_global], dim=1)

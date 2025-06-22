@@ -212,13 +212,13 @@ class TrimerModel(nn.Module):
             )
         
         # 获取全局表示
-        tcr_global = tcr_embed.sum(dim=1) / tcr_lengths.unsqueeze(1).float()
-        hla_global = hla_embed.sum(dim=1) / hla_lengths.unsqueeze(1).float()
+        tcr_global = tcr_embed.sum(dim=1) / (tcr_lengths.unsqueeze(1).float() + 1e-8)
+        hla_global = hla_embed.sum(dim=1) / (hla_lengths.unsqueeze(1).float() + 1e-8)
         pep_global = self.hla_pep_model.pep_embedding(pep_idx, pep_biochem)
         pep_global = self.hla_pep_model.pep_pos_encoding(pep_global)
         for layer in self.hla_pep_model.pep_encoder:
             pep_global = layer(pep_global, ~pep_mask.unsqueeze(1).expand(-1, pep_idx.size(1), -1))
-        pep_global = pep_global.sum(dim=1) / pep_lengths.unsqueeze(1).float()
+        pep_global = pep_global.sum(dim=1) / (pep_lengths.unsqueeze(1).float() + 1e-8)
         
         # 整合三元互作信息
         trimer_features = torch.cat([tcr_global, hla_global, pep_global], dim=1)

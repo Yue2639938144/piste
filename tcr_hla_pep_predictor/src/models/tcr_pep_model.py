@@ -374,8 +374,8 @@ class TCRPepModel(nn.Module):
             )
         
         # 全局表示
-        tcr_global = tcr_embed.sum(dim=1) / tcr_lengths.unsqueeze(1).float()
-        cross_global = cross_output.sum(dim=1) / tcr_lengths.unsqueeze(1).float()
+        tcr_global = tcr_embed.sum(dim=1) / (tcr_lengths.unsqueeze(1).float() + 1e-8)
+        cross_global = cross_output.sum(dim=1) / (tcr_lengths.unsqueeze(1).float() + 1e-8)
         
         # 连接全局表示
         combined = torch.cat([tcr_global, cross_global], dim=1)

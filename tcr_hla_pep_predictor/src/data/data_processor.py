@@ -185,7 +185,7 @@ def load_binary_data(data_dir: str, binary_type: str, negative_ratio: float = 1.
     
     Args:
         data_dir: 数据目录，应包含pos和neg子文件夹
-        binary_type: 二元类型，'tcr_pep'或'hla_pep'
+        binary_type: 二元类型，'tcr_pep'、'hla_pep'或'trimer'
         negative_ratio: 阴性样本相对于阳性样本的比例
         
     Returns:
@@ -194,7 +194,7 @@ def load_binary_data(data_dir: str, binary_type: str, negative_ratio: float = 1.
     logger = logging.getLogger("data_processor")
     
     # 验证二元类型
-    if binary_type not in ['tcr_pep', 'hla_pep']:
+    if binary_type not in ['tcr_pep', 'hla_pep', 'trimer']:
         raise ValueError(f"不支持的二元类型: {binary_type}")
     
     # 构建阳性和阴性数据路径
@@ -300,9 +300,9 @@ def load_binary_data(data_dir: str, binary_type: str, negative_ratio: float = 1.
         stratify=train_val_data["Label"]
     )
     
-    # 如果是HLA-Pep类型，则还需加载HLA序列数据
+    # 如果是HLA-Pep或trimer类型，则需加载HLA序列数据
     hla_seq_df = None
-    if binary_type == 'hla_pep':
+    if binary_type in ['hla_pep', 'trimer']:
         hla_seq_path = os.path.join(data_dir, "hla_sequences.csv")
         if os.path.exists(hla_seq_path):
             logger.info(f"加载HLA序列数据: {hla_seq_path}")
@@ -471,9 +471,8 @@ def process_data(data: Dict[str, pd.DataFrame], output_dir: str, config: Dict) -
             logger.info(f"验证集: {trimer_val.shape[0]}样本，正例比例: {trimer_val['Label'].mean():.4f}")
             logger.info(f"测试集: {trimer_test.shape[0]}样本，正例比例: {trimer_test['Label'].mean():.4f}")
     
-    # 针对三元模型数据处理
+    # 针对三元模型数据处理（完整结构）
     elif "tcr_pep" in data and "hla_pep" in data and "trimer" in data:
-        # 新格式三元数据处理
         # 创建子目录
         tcr_pep_dir = os.path.join(output_dir, "tcr_pep")
         hla_pep_dir = os.path.join(output_dir, "hla_pep")
@@ -483,32 +482,24 @@ def process_data(data: Dict[str, pd.DataFrame], output_dir: str, config: Dict) -
         os.makedirs(hla_pep_dir, exist_ok=True)
         os.makedirs(trimer_dir, exist_ok=True)
         
-        # 处理TCR-Pep数据
-        logger.info("处理TCR-Pep数据...")
+        # 保存TCR-Pep数据
+        logger.info("保存TCR-Pep数据...")
         tcr_pep_data = data["tcr_pep"]
+        
         tcr_pep_data["train"].to_csv(os.path.join(tcr_pep_dir, "train.csv"), index=False)
         tcr_pep_data["val"].to_csv(os.path.join(tcr_pep_dir, "val.csv"), index=False)
         tcr_pep_data["test"].to_csv(os.path.join(tcr_pep_dir, "test.csv"), index=False)
         
-        # 处理HLA-Pep数据
-        logger.info("处理HLA-Pep数据...")
+        # 保存HLA-Pep数据
+        logger.info("保存HLA-Pep数据...")
         hla_pep_data = data["hla_pep"]
-        
-        # 如果有HLA序列数据，添加HLA序列
-        if data["hla_seq"] is not None:
-            logger.info("合并HLA序列信息...")
-            hla_seq_dict = dict(zip(data["hla_seq"]["HLA"], data["hla_seq"]["pseudo_sequence"]))
-            
-            for split, df in hla_pep_data.items():
-                if "HLA" in df.columns and "HLA_sequence" not in df.columns:
-                    df["HLA_sequence"] = df["HLA"].map(hla_seq_dict)
         
         hla_pep_data["train"].to_csv(os.path.join(hla_pep_dir, "train.csv"), index=False)
         hla_pep_data["val"].to_csv(os.path.join(hla_pep_dir, "val.csv"), index=False)
         hla_pep_data["test"].to_csv(os.path.join(hla_pep_dir, "test.csv"), index=False)
         
-        # 处理Trimer数据
-        logger.info("处理Trimer数据...")
+        # 保存Trimer数据
+        logger.info("保存Trimer数据...")
         trimer_data = data["trimer"]
         
         # 如果有HLA序列数据，添加HLA序列
@@ -539,6 +530,42 @@ def process_data(data: Dict[str, pd.DataFrame], output_dir: str, config: Dict) -
         logger.info(f"HLA-Pep验证集: {hla_pep_data['val'].shape[0]}样本，正例比例: {hla_pep_data['val']['Label'].mean():.4f}")
         logger.info(f"HLA-Pep测试集: {hla_pep_data['test'].shape[0]}样本，正例比例: {hla_pep_data['test']['Label'].mean():.4f}")
         
+        logger.info(f"TCR-HLA-Pep训练集: {trimer_data['train'].shape[0]}样本，正例比例: {trimer_data['train']['Label'].mean():.4f}")
+        logger.info(f"TCR-HLA-Pep验证集: {trimer_data['val'].shape[0]}样本，正例比例: {trimer_data['val']['Label'].mean():.4f}")
+        logger.info(f"TCR-HLA-Pep测试集: {trimer_data['test'].shape[0]}样本，正例比例: {trimer_data['test']['Label'].mean():.4f}")
+    
+    # 针对简化的三元模型数据处理
+    elif "trimer" in data:
+        logger.info("处理简化的三元模型数据...")
+        
+        # 创建trimer目录
+        trimer_dir = os.path.join(output_dir)
+        os.makedirs(trimer_dir, exist_ok=True)
+        
+        # 保存Trimer数据
+        logger.info("保存Trimer数据...")
+        trimer_data = data["trimer"]
+        
+        # 如果有HLA序列数据，添加HLA序列
+        if data["hla_seq"] is not None:
+            logger.info("合并HLA序列信息...")
+            hla_seq_dict = dict(zip(data["hla_seq"]["HLA"], data["hla_seq"]["pseudo_sequence"]))
+            
+            for split, df in trimer_data.items():
+                if "HLA" in df.columns and "HLA_sequence" not in df.columns:
+                    df["HLA_sequence"] = df["HLA"].map(hla_seq_dict)
+        
+        trimer_data["train"].to_csv(os.path.join(trimer_dir, "trimer_train.csv"), index=False)
+        trimer_data["val"].to_csv(os.path.join(trimer_dir, "trimer_val.csv"), index=False)
+        trimer_data["test"].to_csv(os.path.join(trimer_dir, "trimer_test.csv"), index=False)
+        
+        # 保存HLA序列数据
+        if data["hla_seq"] is not None:
+            logger.info("保存HLA序列数据...")
+            data["hla_seq"].to_csv(os.path.join(output_dir, "hla_sequences.csv"), index=False)
+        
+        # 打印数据统计信息
+        logger.info("\n数据统计信息:")
         logger.info(f"TCR-HLA-Pep训练集: {trimer_data['train'].shape[0]}样本，正例比例: {trimer_data['train']['Label'].mean():.4f}")
         logger.info(f"TCR-HLA-Pep验证集: {trimer_data['val'].shape[0]}样本，正例比例: {trimer_data['val']['Label'].mean():.4f}")
         logger.info(f"TCR-HLA-Pep测试集: {trimer_data['test'].shape[0]}样本，正例比例: {trimer_data['test']['Label'].mean():.4f}")
@@ -647,6 +674,23 @@ def preprocess_data(data_dir: str,
         # 三元模型数据加载
         logger.info("加载三元模型数据...")
         try:
+            # 检查是否是简化的目录结构（直接包含pos和neg）
+            if os.path.exists(os.path.join(data_dir, "pos")) and os.path.exists(os.path.join(data_dir, "neg")):
+                logger.info("检测到简化的trimer目录结构，直接加载trimer数据...")
+                trimer_data = load_binary_data(data_dir, "trimer", negative_ratio)
+                
+                # 创建简化的数据结构
+                data = {
+                    "trimer": {
+                        "train": trimer_data["train"],
+                        "val": trimer_data["val"],
+                        "test": trimer_data["test"]
+                    },
+                    "hla_seq": trimer_data["hla_seq"]
+                }
+            else:
+                # 使用完整的目录结构
+                logger.info("使用完整的trimer目录结构...")
             data = load_trimer_data(data_dir)
             
             # 处理数据

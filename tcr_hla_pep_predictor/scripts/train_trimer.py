@@ -335,49 +335,87 @@ def load_binary_models(config: Dict, device: torch.device) -> Tuple[TCRPepModel,
         device: 设备
         
     Returns:
-        TCR-Pep模型和HLA-Pep模型
+        TCR-Pep模型和HLA-Pep模型的元组
     """
     # 加载TCR-Pep模型
     tcr_pep_path = config['model']['tcr_pep_model_path']
-    tcr_pep_checkpoint = torch.load(tcr_pep_path, map_location=device)
-    tcr_pep_model = TCRPepModel(
-        vocab_size=22,
-        embedding_dim=config['model']['embedding_dim'],
-        hidden_dim=config['model']['hidden_dim'],
-        num_heads=config['model']['num_heads'],
-        num_layers=config['model']['num_layers'],
-        max_tcr_len=config['data']['max_tcr_len'],
-        max_pep_len=config['data']['max_pep_len'],
-        use_biochem=config['model']['use_biochem_features'],
-        dropout=config['model']['dropout'],
-        attention_type=config['attention']['fusion_method'],
-        sigma=config['attention']['physical_sliding']['sigma'],
-        num_iterations=config['attention']['physical_sliding']['num_iterations'],
-        fusion_method=config['attention']['fusion_method'],
-        fusion_weights=config['attention']['fusion_weights']
-    ).to(device)
-    tcr_pep_model.load_state_dict(tcr_pep_checkpoint['model_state_dict'])
+    if os.path.exists(tcr_pep_path):
+        tcr_pep_checkpoint = torch.load(tcr_pep_path, map_location=device)
+        tcr_pep_model = TCRPepModel(
+            vocab_size=22,
+            embedding_dim=config['model']['embedding_dim'],
+            hidden_dim=config['model']['hidden_dim'],
+            num_heads=config['model']['num_heads'],
+            num_layers=config['model']['num_layers'],
+            max_tcr_len=config['data']['max_tcr_len'],
+            max_pep_len=config['data']['max_pep_len'],
+            use_biochem=config['model']['use_biochem_features'],
+            dropout=config['model']['dropout'],
+            attention_type=config['attention']['type'],
+            sigma=config['attention']['physical_sliding']['sigma'],
+            num_iterations=config['attention']['physical_sliding']['num_iterations'],
+            fusion_method=config['attention']['fusion_method'],
+            fusion_weights=config['attention']['fusion_weights']
+        ).to(device)
+        tcr_pep_model.load_state_dict(tcr_pep_checkpoint['model_state_dict'])
+    else:
+        # 如果没有预训练模型，创建新模型
+        tcr_pep_model = TCRPepModel(
+            vocab_size=22,
+            embedding_dim=config['model']['embedding_dim'],
+            hidden_dim=config['model']['hidden_dim'],
+            num_heads=config['model']['num_heads'],
+            num_layers=config['model']['num_layers'],
+            max_tcr_len=config['data']['max_tcr_len'],
+            max_pep_len=config['data']['max_pep_len'],
+            use_biochem=config['model']['use_biochem_features'],
+            dropout=config['model']['dropout'],
+            attention_type=config['attention']['type'],
+            sigma=config['attention']['physical_sliding']['sigma'],
+            num_iterations=config['attention']['physical_sliding']['num_iterations'],
+            fusion_method=config['attention']['fusion_method'],
+            fusion_weights=config['attention']['fusion_weights']
+        ).to(device)
     
     # 加载HLA-Pep模型
     hla_pep_path = config['model']['hla_pep_model_path']
-    hla_pep_checkpoint = torch.load(hla_pep_path, map_location=device)
-    hla_pep_model = HLAPepModel(
-        vocab_size=22,
-        embedding_dim=config['model']['embedding_dim'],
-        hidden_dim=config['model']['hidden_dim'],
-        num_heads=config['model']['num_heads'],
-        num_layers=config['model']['num_layers'],
-        max_hla_len=config['data']['max_hla_len'],
-        max_pep_len=config['data']['max_pep_len'],
-        use_biochem=config['model']['use_biochem_features'],
-        dropout=config['model']['dropout'],
-        attention_type=config['attention']['fusion_method'],
-        sigma=config['attention']['physical_sliding']['sigma'],
-        num_iterations=config['attention']['physical_sliding']['num_iterations'],
-        fusion_method=config['attention']['fusion_method'],
-        fusion_weights=config['attention']['fusion_weights']
-    ).to(device)
-    hla_pep_model.load_state_dict(hla_pep_checkpoint['model_state_dict'])
+    if os.path.exists(hla_pep_path):
+        hla_pep_checkpoint = torch.load(hla_pep_path, map_location=device)
+        hla_pep_model = HLAPepModel(
+            vocab_size=22,
+            embedding_dim=config['model']['embedding_dim'],
+            hidden_dim=config['model']['hidden_dim'],
+            num_heads=config['model']['num_heads'],
+            num_layers=config['model']['num_layers'],
+            max_hla_len=config['data']['max_hla_len'],
+            max_pep_len=config['data']['max_pep_len'],
+            use_biochem=config['model']['use_biochem_features'],
+            dropout=config['model']['dropout'],
+            attention_type=config['attention']['type'],
+            sigma=config['attention']['physical_sliding']['sigma'],
+            num_iterations=config['attention']['physical_sliding']['num_iterations'],
+            fusion_method=config['attention']['fusion_method'],
+            fusion_weights=config['attention']['fusion_weights']
+        ).to(device)
+        hla_pep_model.load_state_dict(hla_pep_checkpoint['model_state_dict'])
+    else:
+        # 如果没有预训练模型，创建新模型
+        hla_pep_model = HLAPepModel(
+            vocab_size=22,
+            embedding_dim=config['model']['embedding_dim'],
+            hidden_dim=config['model']['hidden_dim'],
+            num_heads=config['model']['num_heads'],
+            num_layers=config['model']['num_layers'],
+            max_hla_len=config['data']['max_hla_len'],
+            max_pep_len=config['data']['max_pep_len'],
+            use_biochem=config['model']['use_biochem_features'],
+            dropout=config['model']['dropout'],
+            attention_type=config['attention']['type'],
+            sigma=config['attention']['physical_sliding']['sigma'],
+            num_iterations=config['attention']['physical_sliding']['num_iterations'],
+            fusion_method=config['attention']['fusion_method'],
+            fusion_weights=config['attention']['fusion_weights']
+        ).to(device)
     
     return tcr_pep_model, hla_pep_model
 
@@ -493,7 +531,7 @@ def main():
         use_biochem=config['model']['use_biochem_features'],
         biochem_dim=config['model']['biochem_dim'],
         dropout=config['model']['dropout'],
-        attention_type=config['attention']['fusion_method'],
+        attention_type=config['attention']['type'],
         sigma=config['attention']['physical_sliding']['sigma'],
         num_iterations=config['attention']['physical_sliding']['num_iterations'],
         fusion_method=config['attention']['fusion_method'],

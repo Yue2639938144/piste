@@ -20,9 +20,13 @@ model:
   num_layers: 4
   dropout: 0.1
   use_biochem_features: true
+  biochem_dim: 5
+  tcr_pep_model_path: "models/tcr_pep_best.pt"
+  hla_pep_model_path: "models/hla_pep_best.pt"
 
 # 注意力机制配置
 attention:
+  type: "fused"  # physical, data_driven, or fused
   physical_sliding:
     enabled: true
     sigma: 1.0
@@ -39,10 +43,20 @@ training:
   weight_decay: 1.0e-5
   max_epochs: 200
   patience: 20
+  joint_training: true
   loss_weights:
     tcr_pep: 1.0
     hla_pep: 1.0
     trimer: 1.0
+  phases:
+    - name: "冻结二元模型训练"
+      freeze_binary_models: true
+      lr: 1.0e-3
+      epochs: 50
+    - name: "联合训练"
+      freeze_binary_models: false
+      lr: 5.0e-4
+      epochs: 50
 
 # 优化器配置
 optimizer:

@@ -231,6 +231,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
     args = parser.parse_args()
     
+    # 开启PyTorch异常检测
+    torch.autograd.set_detect_anomaly(True)
+    
     # 设置随机种子
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -323,7 +326,7 @@ def main():
         max_pep_len=config['data']['max_pep_len'],
         use_biochem=config['model']['use_biochem_features'],
         dropout=config['model']['dropout'],
-        attention_type=config['attention']['fusion_method'],
+        attention_type=config['attention']['type'],
         sigma=config['attention']['physical_sliding']['sigma'],
         num_iterations=config['attention']['physical_sliding']['num_iterations'],
         fusion_method=config['attention']['fusion_method'],
