@@ -112,71 +112,345 @@ set KMP_DUPLICATE_LIB_OK=TRUE
 
 ## 使用方法
 
-TCR-HLA-Pep预测器提供了统一的命令行接口，支持数据预处理、模型训练、评估和预测功能。
+TCR-HLA-Pep预测器提供了统一的命令行接口，支持数据预处理、模型训练、评估和预测功能。所有功能都可以通过`cli.py`主程序访问。
+
+### 数据准备
+
+在开始使用预测器之前，您需要准备好数据并按照[数据格式](#数据格式)部分所述的结构组织数据。
+
+#### 数据目录结构设置
+
+首先，创建必要的数据目录结构：
+
+```bash
+# 创建数据目录结构
+mkdir -p data/raw/tcr_pep/{pos,neg}
+mkdir -p data/raw/hla_pep/{pos,neg}
+mkdir -p data/raw/trimer/{pos,neg}
+mkdir -p data/processed
+```
+
+#### 准备示例数据
+
+您可以使用以下命令生成示例数据文件：
+
+```bash
+# 生成TCR-Pep示例数据
+echo "CDR3,MT_pep" > data/raw/tcr_pep/pos/pos_data.csv
+echo "CASSLAPGATNEKLFF,GILGFVFTL" >> data/raw/tcr_pep/pos/pos_data.csv
+
+echo "CDR3,MT_pep" > data/raw/tcr_pep/neg/neg_data.csv
+echo "CASSLTNSGNTLYF,GILGFVFTL" >> data/raw/tcr_pep/neg/neg_data.csv
+
+# 生成HLA-Pep示例数据
+echo "HLA,MT_pep" > data/raw/hla_pep/pos/pos_data.csv
+echo "HLA-A*02:01,GILGFVFTL" >> data/raw/hla_pep/pos/pos_data.csv
+
+echo "HLA,MT_pep" > data/raw/hla_pep/neg/neg_data.csv
+echo "HLA-A*02:01,KLVALGINAV" >> data/raw/hla_pep/neg/neg_data.csv
+
+# 生成HLA序列数据
+echo "HLA,pseudo_sequence" > data/raw/hla_pep/hla_sequences.csv
+echo "HLA-A*02:01,YFAMYQENMAHTDANTLYIIYRDYTWAAQAYRWYITAYLEYAAFTYLEGRCVEWLRRYLENGKETLQRA" >> data/raw/hla_pep/hla_sequences.csv
+
+# 生成三元组示例数据
+echo "CDR3,HLA,MT_pep" > data/raw/trimer/pos/pos_data.csv
+echo "CASSLAPGATNEKLFF,HLA-A*02:01,GILGFVFTL" >> data/raw/trimer/pos/pos_data.csv
+
+echo "CDR3,HLA,MT_pep" > data/raw/trimer/neg/neg_data.csv
+echo "CASSLAPGATNEKLFF,HLA-A*02:01,KLVALGINAV" >> data/raw/trimer/neg/neg_data.csv
+
+cp data/raw/hla_pep/hla_sequences.csv data/raw/trimer/
+```
 
 ### 数据预处理
 
-将原始数据转换为模型可用的格式，并可选择拆分为训练、验证和测试集。
+数据预处理是模型训练的第一步，将原始数据转换为模型可用的格式，并拆分为训练、验证和测试集。
+
+#### 预处理参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--data_dir` | 原始数据目录路径 | 必填 |
+| `--output_dir` | 处理后数据的输出目录 | 必填 |
+| `--mode` | 数据模式，可选值：`tcr_pep`、`hla_pep`、`trimer` | 必填 |
+| `--negative_ratio` | 负样本与正样本的比例 | 1.0 |
+| `--train_ratio` | 训练集比例 | 0.7 |
+| `--val_ratio` | 验证集比例 | 0.15 |
+| `--test_ratio` | 测试集比例 | 0.15 |
+| `--random_seed` | 随机种子，用于数据拆分的可重复性 | 42 |
+| `--cluster_tcrs` | 是否对TCR序列进行聚类以减少序列相似性 | False |
+| `--cluster_threshold` | TCR聚类阈值 | 0.8 |
+
+#### 预处理命令示例
 
 ```bash
 # 处理TCR-Pep二元数据
-python cli.py preprocess --data_dir data/raw/tcr_pep --output_dir data/processed --mode tcr_pep --negative_ratio 1.0
+python cli.py preprocess --data_dir data/raw/tcr_pep --output_dir data/processed --mode tcr_pep --negative_ratio 1.0 --random_seed 42
 
 # 处理HLA-Pep二元数据
-python cli.py preprocess --data_dir data/raw/hla_pep --output_dir data/processed --mode hla_pep --negative_ratio 1.0
+python cli.py preprocess --data_dir data/raw/hla_pep --output_dir data/processed --mode hla_pep --negative_ratio 1.0 --random_seed 42
 
 # 处理三元数据
-python cli.py preprocess --data_dir data/raw/trimer --output_dir data/processed --mode trimer --negative_ratio 1.0
+python cli.py preprocess --data_dir data/raw/trimer --output_dir data/processed --mode trimer --negative_ratio 1.0 --random_seed 42
 ```
+
+#### 预处理注意事项
+
+1. **数据格式检查**：预处理前确保数据格式正确，特别是列名和文件结构
+2. **数据平衡**：通过`--negative_ratio`参数调整正负样本比例
+3. **数据拆分**：确保训练、验证和测试集的比例之和为1.0
+4. **HLA序列文件**：对于`hla_pep`和`trimer`模式，确保`hla_sequences.csv`文件存在且包含所有HLA的序列信息
+5. **错误处理**：如果预处理过程中出现错误，请查看日志文件了解详细信息
 
 ### 模型训练
 
-训练模型有三种模式：TCR-Pep二元模型、HLA-Pep二元模型和TCR-HLA-Pep三元模型。
+训练模型有三种模式：TCR-Pep二元模型、HLA-Pep二元模型和TCR-HLA-Pep三元模型。建议先训练二元模型，然后使用预训练的二元模型初始化三元模型。
+
+#### 训练参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--mode` | 训练模式，可选值：`tcr_pep`、`hla_pep`、`trimer` | 必填 |
+| `--train_data` | 训练数据文件路径 | 必填 |
+| `--val_data` | 验证数据文件路径 | 必填 |
+| `--output_dir` | 模型输出目录 | 必填 |
+| `--pretrained_model` | 预训练模型路径，用于三元模型训练 | 无 |
+| `--batch_size` | 批大小 | 64 |
+| `--epochs` | 训练轮数 | 200 |
+| `--learning_rate` | 学习率 | 0.001 |
+| `--early_stopping` | 是否启用早停策略 | False |
+| `--patience` | 早停策略的耐心值 | 10 |
+| `--joint_optimization` | 是否进行联合优化（仅三元模型） | False |
+| `--embedding_dim` | 嵌入维度 | 128 |
+| `--hidden_dim` | 隐藏层维度 | 256 |
+| `--dropout` | Dropout比率 | 0.2 |
+| `--weight_decay` | 权重衰减系数 | 1e-4 |
+| `--attention_heads` | 注意力头数量 | 8 |
+| `--save_checkpoint` | 是否保存检查点 | True |
+| `--checkpoint_freq` | 检查点保存频率（轮数） | 10 |
+
+#### 训练命令示例
 
 1. 训练TCR-Pep二元模型：
 
 ```bash
-python cli.py train --mode tcr_pep --train_data data/processed/tcr_pep/train.csv \
+# 在Windows系统中设置环境变量解决OpenMP错误
+$env:KMP_DUPLICATE_LIB_OK="TRUE";
+
+# 训练TCR-Pep二元模型
+python cli.py train --mode tcr_pep \
+                   --train_data data/processed/tcr_pep/train.csv \
                    --val_data data/processed/tcr_pep/val.csv \
-                   --output_dir models/tcr_pep --early_stopping
+                   --output_dir models/tcr_pep \
+                   --batch_size 32 \
+                   --learning_rate 0.001 \
+                   --early_stopping \
+                   --patience 15
 ```
 
 2. 训练HLA-Pep二元模型：
 
 ```bash
-python cli.py train --mode hla_pep --train_data data/processed/hla_pep/train.csv \
+# 训练HLA-Pep二元模型
+python cli.py train --mode hla_pep \
+                   --train_data data/processed/hla_pep/train.csv \
                    --val_data data/processed/hla_pep/val.csv \
-                   --output_dir models/hla_pep --early_stopping
+                   --output_dir models/hla_pep \
+                   --batch_size 32 \
+                   --learning_rate 0.001 \
+                   --early_stopping \
+                   --patience 15
 ```
 
 3. 训练三元模型（使用预训练的二元模型）：
 
 ```bash
-python cli.py train --mode trimer --train_data data/processed/trimer/train.csv \
+# 训练三元模型
+python cli.py train --mode trimer \
+                   --train_data data/processed/trimer/train.csv \
                    --val_data data/processed/trimer/val.csv \
                    --pretrained_model models/tcr_pep/best_model.pt,models/hla_pep/best_model.pt \
-                   --output_dir models/trimer --early_stopping --joint_optimization
+                   --output_dir models/trimer \
+                   --batch_size 16 \
+                   --learning_rate 0.0005 \
+                   --early_stopping \
+                   --patience 20 \
+                   --joint_optimization
 ```
+
+#### 训练注意事项
+
+1. **GPU加速**：如果有GPU，系统会自动使用；如果没有，将使用CPU训练（速度较慢）
+2. **内存使用**：大数据集训练时，可能需要调整`batch_size`以适应内存限制
+3. **预训练模型**：三元模型训练时，确保提供正确的预训练二元模型路径，用逗号分隔
+4. **联合优化**：使用`--joint_optimization`参数可以在三元模型训练过程中同时优化二元模型
+5. **训练监控**：训练过程中会输出损失和评估指标，可以通过日志文件监控训练进度
+6. **模型保存**：训练结束后，最佳模型会保存在指定的输出目录中
 
 ### 模型评估
 
 在测试集上评估模型性能，生成详细的评估报告和可视化图表。
 
+#### 评估参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model` | 模型文件路径 | 必填 |
+| `--test_data` | 测试数据文件路径 | 必填 |
+| `--output_dir` | 评估结果输出目录 | 必填 |
+| `--batch_size` | 批大小 | 64 |
+| `--detailed_report` | 是否生成详细报告 | False |
+| `--visualize` | 是否生成可视化结果 | False |
+
+#### 评估命令示例
+
 ```bash
+# 评估三元模型
 python cli.py evaluate --model models/trimer/best_model.pt \
                       --test_data data/processed/trimer/test.csv \
-                      --output_dir evaluation
+                      --output_dir evaluation \
+                      --batch_size 32 \
+                      --detailed_report \
+                      --visualize
 ```
+
+#### 评估注意事项
+
+1. **评估指标**：评估结果包括准确率、精确率、召回率、F1分数、AUC-ROC等
+2. **混淆矩阵**：使用`--detailed_report`参数可生成混淆矩阵和分类报告
+3. **阈值调整**：可以通过调整决策阈值优化模型性能
+4. **可视化**：使用`--visualize`参数可生成ROC曲线、PR曲线等可视化结果
 
 ### 预测和可视化
 
-使用训练好的模型进行预测，并可选择生成残基互作可视化。
+使用训练好的模型对新数据进行预测，并可选择生成残基互作可视化。
+
+#### 预测参数说明
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| `--model` | 模型文件路径 | 必填 |
+| `--input` | 输入数据文件路径 | 必填 |
+| `--output_dir` | 预测结果输出目录 | 必填 |
+| `--batch_size` | 批大小 | 64 |
+| `--threshold` | 预测阈值 | 0.5 |
+| `--visualize` | 是否生成可视化结果 | False |
+| `--interactive` | 是否生成交互式可视化 | False |
+| `--top_k` | 显示前k个最强互作 | 10 |
+
+#### 预测数据格式
+
+预测数据格式与训练数据相似，但不需要`Label`列：
+
+```
+CDR3,HLA,MT_pep
+CASSLAPGATNEKLFF,HLA-A*02:01,GILGFVFTL
+CASSLTNSGNTLYF,HLA-A*02:01,NLVPMVATV
+```
+
+#### 预测命令示例
 
 ```bash
+# 预测并生成可视化结果
 python cli.py predict --model models/trimer/best_model.pt \
                      --input data/new_samples.csv \
                      --output_dir results \
-                     --visualize --interactive
+                     --threshold 0.6 \
+                     --visualize \
+                     --top_k 5
+```
+
+#### 交互式可视化
+
+如果需要生成交互式可视化，可以使用`--interactive`参数：
+
+```bash
+# 生成交互式可视化
+python cli.py predict --model models/trimer/best_model.pt \
+                     --input data/new_samples.csv \
+                     --output_dir results \
+                     --visualize \
+                     --interactive
+```
+
+交互式可视化会生成HTML文件，可以在浏览器中打开查看。
+
+#### 批量预测
+
+对大量数据进行批量预测：
+
+```bash
+# 批量预测
+python cli.py predict --model models/trimer/best_model.pt \
+                     --input data/large_dataset.csv \
+                     --output_dir results/batch_prediction \
+                     --batch_size 128
+```
+
+#### 预测注意事项
+
+1. **输入格式**：确保输入数据格式正确，列名与训练数据一致
+2. **阈值调整**：可以通过`--threshold`参数调整预测阈值，影响预测结果
+3. **可视化选项**：
+   - `--visualize`：生成静态可视化图表
+   - `--interactive`：生成交互式可视化（需要额外的依赖）
+4. **结果保存**：预测结果会保存为CSV文件，可视化结果保存为PNG或HTML文件
+5. **内存使用**：处理大量数据时，可能需要调整`batch_size`以适应内存限制
+
+### 高级用法
+
+#### 配置文件
+
+除了命令行参数外，还可以使用配置文件指定参数：
+
+```bash
+# 使用配置文件
+python cli.py train --config configs/my_config.yaml
+```
+
+配置文件示例（YAML格式）：
+
+```yaml
+mode: trimer
+train_data: data/processed/trimer/train.csv
+val_data: data/processed/trimer/val.csv
+pretrained_model: 
+  - models/tcr_pep/best_model.pt
+  - models/hla_pep/best_model.pt
+output_dir: models/trimer
+batch_size: 32
+learning_rate: 0.0005
+early_stopping: true
+patience: 15
+joint_optimization: true
+```
+
+#### 模型调试
+
+在训练过程中启用调试模式，输出更详细的信息：
+
+```bash
+# 启用调试模式
+python cli.py train --mode tcr_pep --train_data data/processed/tcr_pep/train.csv --val_data data/processed/tcr_pep/val.csv --output_dir models/tcr_pep --debug
+```
+
+#### 模型导出
+
+将训练好的模型导出为ONNX格式，便于部署：
+
+```bash
+# 导出模型
+python cli.py export --model models/trimer/best_model.pt --output models/trimer/model.onnx
+```
+
+#### 自定义数据处理
+
+对数据进行自定义预处理：
+
+```bash
+# 自定义数据处理
+python cli.py preprocess --data_dir data/raw/custom --output_dir data/processed/custom --mode custom --custom_config configs/custom_preprocessing.yaml
 ```
 
 ## 数据格式
